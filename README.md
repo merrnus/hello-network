@@ -1,4 +1,5 @@
 # Project 1: Point-to-Point Network
+<img width="2752" height="1536" alt="Gemini_Generated_Image_f6jaeyf6jaeyf6ja" src="https://github.com/user-attachments/assets/e09317ee-d93e-436c-bd67-63ef8a6e8042" />
 
 ## 🌑 The Dark Room
 
