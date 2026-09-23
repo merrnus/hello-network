@@ -1,145 +1,80 @@
-# hello-network
+# Project 1: Point-to-Point Network
 
-# Proje 1 — Noktadan Noktaya Ağ (Peer-to-Peer)
+## 🌑 The Dark Room
 
-## Proje Hakkında
+We have a message.
 
-Bu projede, herhangi bir router veya switch kullanmadan iki cihazın doğrudan birbirleriyle iletişim kurması sağlandı.
+It needs to reach another computer.
 
-Senaryo basit:
+No router.
+No switch.
+No internet.
 
-> İnternet yok, router yok, switch yok. Sadece iki cihaz ve aralarında bir bağlantı var.
+Just two hosts and a connection between them.
 
-Amaç; cihazların ağ üzerindeki kimliklerini anlamak, birbirlerini bulmalarını sağlamak ve ilk `ping` paketini başarılı şekilde göndermek.
+So, how do they communicate?
 
----
-
-## Öğrenilen Temel Kavramlar
-
-### OSI Modeli — Layer 1, 2 ve 3
-
-Bu projede ağ iletişiminin temelini oluşturan ilk üç katmana odaklanıldı.
-
-| Katman              | Görevi                                       | Örnek                 |
-| ------------------- | -------------------------------------------- | --------------------- |
-| Layer 3 — Network   | Mantıksal adresleme ve ağlar arası iletişim  | IP                    |
-| Layer 2 — Data Link | Aynı ağdaki cihazların fiziksel adreslenmesi | MAC                   |
-| Layer 1 — Physical  | Verinin fiziksel ortam üzerinden taşınması   | Ethernet kablosu, NIC |
-
-Basitçe düşünürsek:
-
-* **Layer 3:** "Hangi cihaza/ağa gitmeliyim?"
-* **Layer 2:** "Bu cihazın MAC adresi ne?"
-* **Layer 1:** "Veriyi fiziksel olarak nasıl göndereceğim?"
-
-Veri gönderilirken bu katmanlardan geçerek paketlenir (**encapsulation**). Alıcı tarafta ise bu işlem tersine çevrilerek veri açılır (**decapsulation**).
+This project starts with that simple question.
 
 ---
 
-## IP ve MAC Adresi
+# 🧩 The Four Parts of Communication
 
-Ağ iletişiminde IP ve MAC adreslerinin farklı görevleri vardır.
+Before looking at the technical details, let's reduce the problem to four basic parts:
 
-### IP Adresi
+| Part              | Question                           |
+| ----------------- | ---------------------------------- |
+| **Source**        | Where does the message come from?  |
+| **Destination**   | Where does it go?                  |
+| **Communication** | How do the two hosts connect?      |
+| **Protocols**     | How do they understand each other? |
 
-IP adresi cihazın ağ üzerindeki **mantıksal adresidir**.
+For this project:
 
-Örneğin:
+* **Source:** macOS Host
+* **Destination:** Kali Linux
+* **Communication:** VMware Host-Only Network
+* **Protocols:** ARP and ICMP
+
+Now let's look at each part.
+
+---
+
+# 1. 📤 Source
+
+The source is the device that sends the message.
+
+In this project, the source is the **macOS Host**.
+
+The destination is a Kali Linux virtual machine running inside VMware Fusion.
 
 ```text
-172.16.110.128
+[ macOS ]
+  Source
+     │
+     │
+     ▼
+[ Kali Linux ]
+ Destination
 ```
 
-IP adresi bulunduğu ağa göre değişebilir.
+But having two devices is not enough.
 
-### MAC Adresi
-
-MAC adresi ise ağ kartının (**NIC**) Layer 2 seviyesindeki adresidir.
-
-Örneğin:
-
-```text
-00:0c:29:56:b0:fc
-```
-
-Aynı ağ üzerinde bir cihazın fiziksel olarak tanınmasında kullanılır.
-
-Kısaca:
-
-```text
-IP  → Hangi ağdaki cihaz?
-MAC → Aynı ağdaki hangi cihaz?
-```
+They need a way to reach each other.
 
 ---
 
-## ARP ve ICMP
+# 2. 📥 Destination
 
-### ARP — Address Resolution Protocol
+Our destination is the **Kali Linux virtual machine**.
 
-Bir cihaz aynı ağdaki başka bir cihazın IP adresini biliyor fakat MAC adresini bilmiyorsa ARP kullanılır.
-
-Örneğin:
-
-```text
-172.16.110.128 kimde?
-MAC adresini söyle.
-```
-
-Bu istek ağ üzerinde yayınlanır (**broadcast**).
-
-Hedef cihaz cevap verdiğinde IP ve MAC eşleştirmesi ARP cache'e kaydedilir.
-
----
-
-### ICMP — Ping
-
-`ping` komutu ICMP kullanarak hedef cihazın erişilebilir olup olmadığını kontrol eder.
-
-Basit akış:
-
-```text
-Mac
- │
- │ ICMP Echo Request
- ▼
-Kali Linux
- │
- │ ICMP Echo Reply
- ▼
-Mac
-```
-
-Bu sayede iki cihaz arasındaki bağlantının çalışıp çalışmadığı kontrol edilebilir.
-
----
-
-# Laboratuvar Ortamı
-
-### Kullanılan Sistemler
-
-* **Host:** macOS
-* **Virtual Machine:** Kali Linux
-* **Virtualization:** VMware Fusion
-* **Network:** Host-Only
-
-Host-Only ağ kullanıldığı için Kali ile macOS arasında sanal bir ağ oluşturuldu. Bu ağın internete çıkması gerekmiyor.
-
----
-
-# Uygulama
-
-## 1. Ağ Arayüzlerini Kontrol Etme
-
-Kali Linux üzerinde:
+We can inspect its network interfaces with:
 
 ```bash
 ip a
 ```
 
-komutu çalıştırıldı.
-
-Çıktıda temel olarak şu arayüzler görülebilir:
+The output contains several useful pieces of information.
 
 ### `lo`
 
@@ -147,113 +82,319 @@ komutu çalıştırıldı.
 127.0.0.1
 ```
 
-Bu **loopback** arayüzüdür.
+This is the loopback interface.
 
-Cihazın kendi TCP/IP yapısını test etmek için kullanılır.
+It allows the system to communicate with itself and is useful for testing the local TCP/IP stack.
 
 ### `eth0`
 
-Kali'nin sanal Ethernet arayüzüdür.
+This is the network interface used by Kali for network communication.
 
-Örneğin:
-
-```text
-172.16.110.128
-```
-
-Aynı çıktıda:
+The output shows its IP address and, next to:
 
 ```text
 link/ether
 ```
 
-ifadesinin yanında MAC adresi de görülebilir.
+its MAC address.
+
+This gives us two different types of addresses:
+
+* **IP address** — logical addressing
+* **MAC address** — link-layer addressing
 
 ---
 
-## 2. Ping ile Bağlantıyı Test Etme
+# 3. 🔌 Communication
 
-Mac terminalinden Kali'nin IP adresine ping gönderildi:
+Now we know the source and the destination.
+
+But they still need a path between them.
+
+For this project, we use VMware Fusion's:
+
+> **Host-Only Network**
+
+This creates a private virtual network between the macOS Host and the Kali Linux VM.
+
+```text
+┌──────────────┐
+│    macOS     │
+│    Source    │
+└──────┬───────┘
+       │
+       │ Host-Only
+       │ Network
+       │
+┌──────▼───────┐
+│ Kali Linux   │
+│ Destination  │
+└──────────────┘
+```
+
+The important part is that this network does not need internet access.
+
+The goal is simple:
+
+> **Get two hosts to communicate directly.**
+
+---
+
+# 4. 🤝 Protocols
+
+The connection exists.
+
+The source can reach the destination.
+
+But there is another problem:
+
+> **How do they understand each other?**
+
+This is where protocols come in.
+
+In this project, we focus on two of them:
+
+* **ARP**
+* **ICMP**
+
+---
+
+## ARP — "Who has this IP?"
+
+Suppose the source knows the destination's IP address.
+
+That is not enough for local network communication.
+
+The source also needs the destination's MAC address.
+
+ARP helps us find it.
+
+The source can ask the local network:
+
+> **"Who has this IP address? Tell me your MAC address."**
+
+This request is sent as a broadcast.
+
+The device that owns the IP address replies with its MAC address.
+
+The result is then stored in the ARP table.
+
+In simple terms:
+
+```text
+IP address
+    ↓
+   ARP
+    ↓
+MAC address
+```
+
+So ARP answers a simple question:
+
+> **"I know where the device is logically. Which device is it on this local network?"**
+
+---
+
+## ICMP — "Are you there?"
+
+Now we have the destination's addressing information.
+
+Next, we want to know if the destination is reachable.
+
+This is where ICMP comes in.
+
+We can trigger an ICMP Echo Request using:
 
 ```bash
 ping 172.16.110.128
 ```
 
-Örnek cevap:
+If the destination is reachable, it sends an ICMP Echo Reply back.
 
 ```text
-64 bytes from 172.16.110.128: icmp_seq=0 ttl=64 time=0.638 ms
+macOS
+  │
+  │ ICMP Echo Request
+  ▼
+Kali Linux
+  │
+  │ ICMP Echo Reply
+  ▼
+macOS
 ```
 
-Buradaki önemli kısımlar:
-
-* `64 bytes from ...` → Kali'den ICMP Echo Reply alındığını gösterir.
-* `time=0.638 ms` → Paketin gidiş-dönüş süresidir.
-
-Host-Only sanal ağ kullanıldığı için gecikmenin çok düşük olması beklenir.
+And just like that, our first communication works.
 
 ---
 
-## 3. ARP Tablosunu Kontrol Etme
+# 🧱 Where does this fit in the OSI Model?
 
-Ping işleminden sonra macOS'un Kali'nin IP adresini hangi MAC adresiyle eşleştirdiğini kontrol etmek için:
+So far, we looked at the problem using our four-part model:
+
+```text
+Source
+   ↓
+Destination
+   ↓
+Communication
+   ↓
+Protocols
+```
+
+Now we can look at the same system from a more technical perspective.
+
+This project mainly uses the first three layers of the OSI model.
+
+### Layer 3 — Network
+
+This layer handles logical addressing.
+
+**IP addresses** work here.
+
+```text
+"Where should this data go?"
+```
+
+### Layer 2 — Data Link
+
+This layer handles communication on the local network.
+
+**MAC addresses** are used here.
+
+```text
+"Which device should receive this data on this network?"
+```
+
+### Layer 1 — Physical
+
+This is where data is carried as physical signals.
+
+Depending on the technology, these can be electrical signals, light, or radio waves.
+
+In a real Ethernet network, cables and network interfaces are part of this layer.
+
+In our project, VMware provides the virtual network connection.
+
+---
+
+# 🏠 IP vs. MAC
+
+A simple way to think about the difference:
+
+### IP = Logical Address
+
+It tells us which network or logical destination a device belongs to.
+
+It can change.
+
+### MAC = Link-Layer Address
+
+It is associated with a network interface and is used for communication on the local network.
+
+It can also be changed in software, so it is better not to think of it as a permanent identity.
+
+In short:
+
+```text
+IP  → "Where?"
+MAC → "Which interface on this local network?"
+```
+
+---
+
+# 🧪 Lab
+
+### Environment
+
+* **Host:** macOS
+* **Virtual Machine:** Kali Linux
+* **Virtualization:** VMware Fusion
+* **Network:** Host-Only
+* **Goal:** Communicate without using the internet
+
+### Step 1 — Inspect the network interfaces
+
+On Kali Linux:
 
 ```bash
-arp -a
+ip a
 ```
 
-komutu çalıştırıldı.
+Look for:
 
-Örnek çıktı:
+* `lo` → Loopback
+* `eth0` → Network interface
+* `inet` → IP address
+* `link/ether` → MAC address
+
+### Step 2 — Test the connection
+
+From the macOS terminal:
+
+```bash
+ping 172.16.110.128
+```
+
+If the connection is working, the communication looks roughly like this:
 
 ```text
-? (172.16.110.128) at 0:c:29:56:b0:fc on bridge100 ifscope [bridge]
+Source
+   ↓
+Find destination MAC using ARP
+   ↓
+Communicate over the local network
+   ↓
+Send ICMP Echo Request
+   ↓
+Destination
+   ↓
+Send ICMP Echo Reply
+   ↓
+Source
 ```
-
-Burada:
-
-```text
-172.16.110.128
-        ↓
-0:c:29:56:b0:fc
-```
-
-eşleştirmesi görülüyor.
-
-Yani macOS, Kali'nin IP adresini ilgili MAC adresiyle eşleştirmiş ve bu bilgiyi ARP cache içerisinde tutmuş.
-
-### `bridge100` nedir?
-
-`bridge100`, macOS'un VMware tarafından oluşturulan sanal Host-Only ağ arayüzlerinden biri için kullandığı arayüz ismidir.
 
 ---
 
-# Sonuç
+# 🎯 Result
 
-Bu projede iki cihaz arasında router veya switch olmadan temel ağ iletişimi gerçekleştirildi.
+We started with two hosts.
 
-Süreç özetle şöyle:
+No router.
+No switch.
+No internet.
+
+We then:
+
+1. Identified the **source**.
+2. Identified the **destination**.
+3. Created a **communication path**.
+4. Used **ARP** to resolve the destination IP to a MAC address.
+5. Used **ICMP** to test the connection.
+6. Successfully exchanged packets between the two hosts.
+
+This gave us a small but complete environment for understanding the basic building blocks of network communication.
+
+---
+
+# 📚 What I Learned
+
+* How a Host-Only network works
+* The difference between IP and MAC addressing
+* How ARP resolves local IP addresses to MAC addresses
+* How ICMP and `ping` work
+* How the first three OSI layers relate to network communication
+* How to break a network problem into four basic parts: **Source, Destination, Communication, and Protocols**
+
+---
+
+# 🚀 Next
+
+We have two hosts communicating directly.
+
+But what happens when we put another device between them?
 
 ```text
-Physical Connection
-        ↓
-Layer 1 — Ethernet
-        ↓
-Layer 2 — MAC / ARP
-        ↓
-Layer 3 — IP
-        ↓
-ICMP
-        ↓
-Ping
+Source → ? → Destination
 ```
 
-Sonuç olarak:
-
-* Cihazların ağ arayüzleri incelendi.
-* IP ve MAC adresleri arasındaki fark görüldü.
-* ARP ile IP → MAC eşleştirmesi gözlemlendi.
-* ICMP `ping` ile bağlantı test edildi.
-* macOS ve Kali Linux arasında başarılı iletişim sağlandı.
-
-**Proje 1 tamamlandı.**
+That's where the next project begins.
